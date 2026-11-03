@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Diwali Tambola Pro - Host Command Center</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- Toast Banner -->
+  <div id="globalToastBanner" class="toast-banner"></div>
+
+  <!-- Top Navigation & State Machine Pill -->
+  <div class="top-control-bar">
+    <div class="control-title">
+      <span>🪔 Diwali Tambola Pro</span>
+      <span id="stateMachineBadge" class="state-pill">SETUP</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+      <button class="btn btn-dark btn-sm" onclick="openPastRoundsModal()">
+        📜 Past Rounds (<span id="pastRoundsBadge">0</span>)
+      </button>
+      <div class="switch-tabs">
+        <a href="admin.html" class="tab-btn active">🎛️ Host Panel</a>
+        <a href="index.html" target="_blank" class="tab-btn">📱 Player App ↗</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin Login Modal -->
+  <div id="adminLoginModal" class="modal-overlay show">
+    <div class="modal-box">
+      <h2 style="color: var(--gold); margin-bottom: 8px;">🔐 Host / Admin Authentication</h2>
+      <p style="color: var(--text-muted); font-size: 0.88rem; margin-bottom: 14px;">
+        Enter Admin Credentials or use your <b>hostSecretToken</b> recovery URL.<br/>
+        <span style="color: var(--gold-bright);">Default ID: <b>admin</b> | Pass: <b>diwali123</b></span>
+      </p>
+      <input type="text" id="adminIdInput" class="input-field" value="admin" placeholder="Admin ID" style="margin-bottom: 10px;" />
+      <input type="password" id="adminPassInput" class="input-field" value="diwali123" placeholder="Password" style="margin-bottom: 12px;" />
+      <p id="loginErrText" style="color: var(--danger); font-size: 0.84rem; display: none; margin-bottom: 10px;">
+        ❌ Invalid credentials! Use admin / diwali123
+      </p>
+      <button class="btn btn-gold" style="width: 100%;" onclick="authenticateAdmin()">
+        Unlock Host Command Center
+      </button>
+    </div>
+  </div>
+
+  <!-- Main Admin Container -->
+  <div class="admin-container" id="adminMainWrap" style="display: none;">
+
+    <!-- ======================================================================
+         STAGE 1: ROOM SETUP WIZARD (State === 'SETUP')
+         ====================================================================== -->
+    <div id="stageSetupWizard" style="display: none;">
+      <div class="card">
+        <div class="card-title">
+          <span>⚙️ Stage 1: Room Setup Wizard (Draft Mode)</span>
+          <span style="font-size: 0.82rem; color: var(--text-muted);">Players cannot join until you open the Lobby</span>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Game / Event Title</label>
+            <input type="text" id="setupTitle" class="input-field" value="Diwali Royal Family Tambola" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Ticket Distribution Mode</label>
+            <select id="setupDistMode" class="select-field">
+              <option value="SELF_PICK">Mode A (Self-Pick): Players pick 1, 2, 3, or 6 tickets</option>
+              <option value="HOST_APPROVAL">Mode B (Host Approval): Players request, Admin approves</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Claim Verification Mode</label>
+            <select id="setupVerifyMode" class="select-field">
+              <option value="AUTO">Auto-Verify (Instant Mathematical Engine Check)</option>
+              <option value="MANUAL_POPUP">Manual Host Popup (Host inspects Green/Red/Star boxes)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Default Auto-Call Timer Speed: <span id="setupTimerVal">8</span> seconds</label>
+            <input type="range" id="setupTimerSlider" min="5" max="15" value="8" style="width: 100%; margin-top: 8px;"
+                   oninput="document.getElementById('setupTimerVal').textContent = this.value" />
+            <div style="font-size: 0.74rem; color: var(--text-muted); margin-top: 4px;">
+              (You can switch between Manual Call & Auto-Call anytime on the Live Game page!)
+            </div>
+          </div>
+        </div>
+
+        <!-- Rule Toggles -->
+        <div class="form-grid" style="margin-top: 8px;">
+          <div class="toggle-row">
+            <div>
+              <strong style="font-size: 0.9rem;">⚡ Strict Last-Number Rule</strong>
+              <div style="font-size: 0.76rem; color: var(--text-muted);">Must claim on exact number that completed the pattern</div>
+            </div>
+            <input type="checkbox" id="setupStrictLast" checked style="width: 20px; height: 20px;" />
+          </div>
+
+          <div class="toggle-row">
+            <div>
+              <strong style="font-size: 0.9rem;">🤝 5s Joint-Winner Grace Window</strong>
+              <div style="font-size: 0.76rem; color: var(--text-muted);">Allows simultaneous claims within 5s to split prize</div>
+            </div>
+            <input type="checkbox" id="setupJointWindow" checked style="width: 20px; height: 20px;" />
+          </div>
+        </div>
+
+        <!-- Exhaustive 20+ Dividends Selector -->
+        <div style="margin-top: 16px;">
+          <div class="card-title">
+            <span>🏆 Select Winning Dividends (20+ Variations)</span>
+            <div>
+              <button class="btn btn-dark btn-sm" onclick="toggleAllSetupDividends(true)">Select All</button>
+              <button class="btn btn-dark btn-sm" onclick="toggleAllSetupDividends(false)">Reset Basic</button>
+            </div>
+          </div>
+          <div class="dividend-setup-grid" id="setupDividendsGrid"></div>
+        </div>
+
+        <div style="margin-top: 20px; text-align: right;">
+          <button class="btn btn-gold" style="font-size: 1.05rem; padding: 14px 28px;" onclick="saveSetupAndOpenLobby()">
+            🚀 Save Configuration & Open Waiting Lobby →
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================================================================
+         STAGE 2: LOBBY & PLAYER MANAGER (State === 'LOBBY')
+         ====================================================================== -->
+    <div id="stageLobbyManager" style="display: none;">
+      <div class="card">
+        <div class="card-title">
+          <span>🚪 Stage 2: Waiting Lobby & Player Manager (Round <span id="lobbyRoundNum">1</span>)</span>
+          <span class="state-pill">Room Code: <b id="lobbyRoomCode">--</b></span>
+        </div>
+
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 14px;">
+          Share the Player Join Link on WhatsApp. Only players joining for THIS round appear below.
+        </p>
+
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px;">
+          <button class="btn btn-dark" onclick="copyShareLink()">📋 Copy Player Join Link</button>
+          <button class="btn btn-green" onclick="shareWhatsAppLobby()">💬 Share on WhatsApp</button>
+          <button class="btn btn-dark" onclick="copyAdminRecoveryLink()">🔑 Copy Admin Recovery URL</button>
+          <button class="btn btn-dark" onclick="backToSetupWizard()">⚙️ Edit Rules (Back to Setup)</button>
+          <button class="btn btn-danger" onclick="clearAllLobbyPlayers()">🧹 Clear All Players</button>
+        </div>
+
+        <!-- Joined Players Table -->
+        <div style="overflow-x: auto; margin-top: 16px;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Player</th>
+                <th>Status</th>
+                <th>Tickets Issued</th>
+                <th>Requested</th>
+                <th>Actions (Approve / Add / Inspect / Kick)</th>
+              </tr>
+            </thead>
+            <tbody id="lobbyPlayersTableBody"></tbody>
+          </table>
+        </div>
+
+        <div style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+          <div style="color: var(--text-muted); font-size: 0.85rem;">
+            🔒 Once started, room will be LOCKED and no new tickets can be issued.
+          </div>
+          <button class="btn btn-gold" style="font-size: 1.05rem; padding: 14px 28px;" onclick="confirmAndStartGame()">
+            🔒 Lock Room & Start Live Game
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================================================================
+         STAGE 3: LIVE ADMIN COMMAND CENTER (3-Column Layout)
+         ====================================================================== -->
+    <div id="stageLiveCommandCenter" style="display: none;">
+      <div class="admin-grid-3col">
+
+        <!-- LEFT PANEL: CALLER ENGINE (Separate Manual Call & Auto-Call + End Round) -->
+        <div>
+          <div class="card">
+            <div class="card-title">
+              <span>🎙️ Caller Engine</span>
+              <button class="btn btn-dark btn-sm" id="adminVoiceBtn" onclick="toggleAdminVoice()">🔊 Voice ON</button>
+            </div>
+
+            <div class="caller-sphere-wrap">
+              <div class="giant-ball" id="liveCurrentBall">--</div>
+              <div>
+                <div style="font-size: 0.75rem; color: #ff9e44; font-weight: 700; letter-spacing: 1px;">CURRENT CALL</div>
+                <div style="font-size: 1.05rem; font-weight: 700;" id="liveCallCounter">0 / 90 Called</div>
+                <div class="lingo-badge" id="liveLingoText">Ready to draw!</div>
+              </div>
+            </div>
+
+            <!-- SEPARATE BUTTON 1: MANUAL CALL (Automatically stops Auto-Call if it was running) -->
+            <button class="btn btn-gold" id="manualDrawBtn" style="width: 100%; font-size: 1.02rem; margin-bottom: 10px;" onclick="handleManualCallClick()">
+              🎲 Manual Call Number (1-by-1)
+            </button>
+
+            <!-- SEPARATE BUTTON 2: AUTO-CALL START / STOP TOGGLE -->
+            <button class="btn btn-dark" id="autoCallToggleBtn" style="width: 100%; font-size: 0.96rem; margin-bottom: 12px; border: 1px solid var(--gold); color: var(--gold-bright);" onclick="toggleLiveAutoCall()">
+              ▶ Start Auto-Call (<span id="autoBtnSecText">8</span>s)
+            </button>
+
+            <!-- Live Speed Slider for Auto-Call -->
+            <div style="background: #140726; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border-purple); margin-bottom: 12px;">
+              <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 6px;">
+                <span style="color: var(--text-muted);">Auto-Caller Timer Delay:</span>
+                <strong style="color: var(--gold-bright);"><span id="liveSpeedVal">8</span>s</strong>
+              </div>
+              <input type="range" id="liveSpeedSlider" min="5" max="15" value="8" style="width: 100%;"
+                     oninput="updateLiveCallSpeed(this.value)" />
+            </div>
+
+            <!-- GAME CONTROL BUTTONS: Pause Game, End Current Round, New Round -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+              <button class="btn btn-dark" id="pauseResumeBtn" onclick="toggleManualPause()">⏸ Pause Game</button>
+              <button class="btn btn-danger" id="endRoundBtn" onclick="endCurrentRoundNow()">🛑 End Round</button>
+            </div>
+
+            <button class="btn btn-dark" style="width: 100%; margin-bottom: 14px; border-color: var(--gold);" onclick="resetToNewRoundSetup()">
+              🔄 Start New Round (Fresh Players)
+            </button>
+
+            <!-- Last 10 Called Numbers Strip -->
+            <div style="font-size: 0.78rem; color: var(--text-muted); font-weight: 700; margin-bottom: 6px;">
+              LAST 10 CALLED NUMBERS:
+            </div>
+            <div class="history-strip" id="liveHistoryStrip"></div>
+          </div>
+
+          <!-- Hype Radar & Player Inspector -->
+          <div class="card">
+            <div class="card-title">
+              <span>🔥 Live Hype Radar & Players</span>
+              <span style="font-size: 0.76rem; color: var(--text-muted);">Click to Inspect</span>
+            </div>
+            <div id="hypeAlertsBox" style="margin-bottom: 10px;"></div>
+            <div id="livePlayersInspectorList" style="max-height: 260px; overflow-y: auto;"></div>
+          </div>
+        </div>
+
+        <!-- CENTER PANEL: 1 TO 90 MASTER BOARD -->
+        <div>
+          <!-- Winner Podium Banner (Shown at top of Center Panel when Round Ends / COMPLETED) -->
+          <div class="card" id="completedPodiumCard" style="display: none; border: 2px solid var(--gold);">
+            <div class="card-title">
+              <span>🏆 Final Winner Podium (Round Ended!)</span>
+              <button class="btn btn-gold btn-sm" onclick="resetToNewRoundSetup()">🚀 Setup Next Round →</button>
+            </div>
+            <div id="podiumSummaryBody"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">
+              <span>🔢 1 to 90 Master Board</span>
+              <span style="font-size: 0.85rem; color: var(--gold-bright);" id="boardStatsText">Called: 0/90 | Remaining: 90</span>
+            </div>
+            <div class="board-grid" id="masterBoardGrid"></div>
+          </div>
+        </div>
+
+        <!-- RIGHT PANEL: DIVIDENDS TRACKER & LIVE AUDIT FEED -->
+        <div>
+          <div class="card">
+            <div class="card-title">
+              <span>🏆 Dividends Tracker</span>
+              <span style="font-size: 0.78rem; color: var(--text-muted);" id="dividendsProgressText">0 Claimed</span>
+            </div>
+            <div id="liveDividendsList" style="max-height: 350px; overflow-y: auto;"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">
+              <span>📡 Live Audit & Activity Feed</span>
+            </div>
+            <div id="liveAuditFeed" style="max-height: 240px; overflow-y: auto;"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ========================================================================
+       CLAIM VERIFICATION MODAL (When State === 'CLAIM_PAUSED' in Manual Mode)
+       ======================================================================== -->
+  <div id="claimVerifyModal" class="modal-overlay">
+    <div class="modal-box">
+      <h2 style="color: var(--gold); margin-bottom: 4px;">🚨 Claim Verification Required!</h2>
+      <p style="color: var(--text-muted); font-size: 0.86rem; margin-bottom: 12px;" id="verifyClaimSub">
+        Auto-caller is paused. Inspect the highlighted ticket below:
+      </p>
+
+      <div id="verifySystemVerdict" style="padding: 10px 12px; border-radius: 10px; margin-bottom: 12px; font-weight: 700; font-size: 0.9rem;"></div>
+
+      <div style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 8px; display: flex; gap: 12px; flex-wrap: wrap;">
+        <span>🟢 <b>Green:</b> Called Number</span>
+        <span>🔴 <b>Red:</b> Uncalled (Fake/Mistake)</span>
+        <span>⭐ <b>Star:</b> Just Called Last Number</span>
+      </div>
+
+      <div id="verifyTicketContainer"></div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px;">
+        <button class="btn btn-green" onclick="resolveManualClaim(true)">✅ Approve Winner</button>
+        <button class="btn btn-danger" onclick="resolveManualClaim(false)">❌ Reject as Bogey</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ticket Inspector Modal -->
+  <div id="ticketInspectorModal" class="modal-overlay">
+    <div class="modal-box">
+      <button class="modal-close" onclick="document.getElementById('ticketInspectorModal').classList.remove('show')">✕</button>
+      <h3 style="color: var(--gold); margin-bottom: 12px;" id="inspectorModalTitle">Player Tickets</h3>
+      <div id="inspectorModalBody"></div>
+    </div>
+  </div>
+
+  <!-- Past Rounds Archive Modal -->
+  <div id="pastRoundsModal" class="modal-overlay">
+    <div class="modal-box">
+      <button class="modal-close" onclick="document.getElementById('pastRoundsModal').classList.remove('show')">✕</button>
+      <h3 style="color: var(--gold); margin-bottom: 10px;">📜 All Rounds Saved Archive</h3>
+      <div id="pastRoundsBody"></div>
+    </div>
+  </div>
+
+  <script src="js/game.js"></script>
+  <script>
+    let adminVoiceEnabled = true;
+    let isAutoCallActive = false; // Completely independent Auto-Call state!
+    let countdownRemaining = 8;
+    let callerTicker = null;
+    let lastToastIdSeen = null;
+    let lastReactionIdSeen = null;
+
+    // 1. Admin Auth & Recovery URL Check
+    function initAdminPage() {
+      const state = getRoomState();
+      const params = new URLSearchParams(window.location.search);
+      const recoveryKey = params.get('key');
+
+      if (
+        sessionStorage.getItem('TAMBOLA_PRO_ADMIN') === 'true' ||
+        (recoveryKey && recoveryKey === state.hostSecretToken)
+      ) {
+        sessionStorage.setItem('TAMBOLA_PRO_ADMIN', 'true');
+        document.getElementById('adminLoginModal').classList.remove('show');
+        document.getElementById('adminMainWrap').style.display = 'block';
+        populateSetupWizardFromState(state);
+        renderAdminFullState();
+        startServerHeartbeat();
+      }
+    }
+
+    function authenticateAdmin() {
+      unlockBrowserAudioAndWakeLock();
+      const id = document.getElementById('adminIdInput').value.trim();
+      const pass = document.getElementById('adminPassInput').value.trim();
+      if (id === ADMIN_CREDENTIALS.id && pass === ADMIN_CREDENTIALS.pass) {
+        sessionStorage.setItem('TAMBOLA_PRO_ADMIN', 'true');
+        document.getElementById('adminLoginModal').classList.remove('show');
+        document.getElementById('adminMainWrap').style.display = 'block';
+        const state = getRoomState();
+        populateSetupWizardFromState(state);
+        renderAdminFullState();
+        startServerHeartbeat();
+      } else {
+        document.getElementById('loginErrText').style.display = 'block';
+      }
+    }
+
+    // 2. Stage 1: Populate Setup Wizard
+    function populateSetupWizardFromState(state) {
+      document.getElementById('setupTitle').value = state.title || 'Diwali Royal Family Tambola';
+      document.getElementById('setupDistMode').value = state.settings.ticketDistributionMode;
+      document.getElementById('setupTimerSlider').value = state.settings.autoCallIntervalSec || 8;
+      document.getElementById('setupTimerVal').textContent = state.settings.autoCallIntervalSec || 8;
+      document.getElementById('setupVerifyMode').value = state.settings.claimVerificationMode;
+      document.getElementById('setupStrictLast').checked = state.settings.strictLastNumberRule;
+      document.getElementById('setupJointWindow').checked = state.settings.allowJointWinners;
+
+      renderSetupDividendsCatalog(state);
+    }
+
+    function renderSetupDividendsCatalog(state) {
+      const activeMap = {};
+      state.dividends.forEach(d => { activeMap[d.id] = d; });
+
+      const grid = document.getElementById('setupDividendsGrid');
+      grid.innerHTML = MASTER_DIVIDENDS_CATALOG.map(item => {
+        const isChecked = Boolean(activeMap[item.id]);
+        const slots = isChecked ? activeMap[item.id].totalSlots : item.defaultSlots;
+        const pts = isChecked ? activeMap[item.id].prizePoints : item.defaultPoints;
+        return `
+          <div class="div-setup-card ${isChecked ? 'checked' : ''}" id="divCard_${item.id}">
+            <label class="div-setup-top" style="cursor: pointer;">
+              <span>${item.icon} ${item.name}</span>
+              <input type="checkbox" class="div-check-input" data-id="${item.id}" ${isChecked ? 'checked' : ''}
+                     onchange="document.getElementById('divCard_${item.id}').classList.toggle('checked', this.checked)" />
+            </label>
+            <div style="font-size: 0.74rem; color: var(--text-muted);">${item.desc}</div>
+            <div class="div-setup-inputs">
+              <span>Winners:</span>
+              <input type="number" id="slots_${item.id}" class="mini-input" min="1" max="5" value="${slots}" />
+              <span>Pts/₹:</span>
+              <input type="number" id="pts_${item.id}" class="mini-input" min="10" step="10" value="${pts}" />
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function toggleAllSetupDividends(selectAll) {
+      document.querySelectorAll('.div-check-input').forEach(chk => {
+        const id = chk.getAttribute('data-id');
+        const cat = MASTER_DIVIDENDS_CATALOG.find(c => c.id === id);
+        chk.checked = selectAll ? true : cat.defaultChecked;
+        document.getElementById('divCard_' + id).classList.toggle('checked', chk.checked);
+      });
+    }
+
+    function saveSetupAndOpenLobby() {
+      unlockBrowserAudioAndWakeLock();
+      const state = getRoomState();
+      const selectedDivs = [];
+
+      document.querySelectorAll('.div-check-input').forEach(chk => {
+        if (chk.checked) {
+          const id = chk.getAttribute('data-id');
+          const cat = MASTER_DIVIDENDS_CATALOG.find(c => c.id === id);
+          const slots = parseInt(document.getElementById('slots_' + id).value, 10) || 1;
+          const pts = parseInt(document.getElementById('pts_' + id).value, 10) || 100;
+          selectedDivs.push({
+            id: cat.id,
+            name: cat.name,
+            icon: cat.icon,
+            desc: cat.desc,
+            totalSlots: slots,
+            prizePoints: pts,
+            status: 'OPEN',
+            claimWindowEndsAt: null,
+            claimWindowNumber: null,
+            winners: []
+          });
+        }
+      });
+
+      if (selectedDivs.length === 0) {
+        alert('Please select at least 1 winning dividend!');
+        return;
+      }
+
+      const sec = parseInt(document.getElementById('setupTimerSlider').value, 10) || 8;
+      state.title = document.getElementById('setupTitle').value.trim() || 'Diwali Family Tambola';
+      state.settings.ticketDistributionMode = document.getElementById('setupDistMode').value;
+      state.settings.callingMode = 'MANUAL'; // Starts in manual until Host clicks Start Auto-Call
+      state.settings.autoCallIntervalSec = sec;
+      state.settings.claimVerificationMode = document.getElementById('setupVerifyMode').value;
+      state.settings.strictLastNumberRule = document.getElementById('setupStrictLast').checked;
+      state.settings.allowJointWinners = document.getElementById('setupJointWindow').checked;
+      state.dividends = selectedDivs;
+
+      document.getElementById('liveSpeedSlider').value = sec;
+      document.getElementById('liveSpeedVal').textContent = sec;
+
+      stopAutoCallEngine();
+      state.status = GAME_STATES.LOBBY;
+      addRoomActivity(state, `Lobby opened for Round ${state.round}: "${state.title}".`);
+      saveRoomState(state, 'LOBBY_OPENED');
+      renderAdminFullState();
+    }
+
+    function backToSetupWizard() {
+      stopAutoCallEngine();
+      const state = getRoomState();
+      state.status = GAME_STATES.SETUP;
+      saveRoomState(state);
+      populateSetupWizardFromState(state);
+      renderAdminFullState();
+    }
+
+    // 3. Stage 2: Lobby Manager Actions
+    function copyShareLink() {
+      const state = getRoomState();
+      const url = new URL(`index.html?room=${state.roomCode}`, window.location.href).href;
+      navigator.clipboard.writeText(url);
+      alert('Player Join Link Copied:\n' + url);
+    }
+
+    function shareWhatsAppLobby() {
+      const state = getRoomState();
+      const url = new URL(`index.html?room=${state.roomCode}`, window.location.href).href;
+      const text = encodeURIComponent(`🪔 Join my "${state.title}" Tambola Room (${state.roomCode})!\nClick here: ${url}`);
+      window.open(`https://wa.me/?text=${text}`, '_blank');
+    }
+
+    function copyAdminRecoveryLink() {
+      const state = getRoomState();
+      const url = new URL(`admin.html?room=${state.roomCode}&key=${state.hostSecretToken}`, window.location.href).href;
+      navigator.clipboard.writeText(url);
+      alert('Secret Host Recovery URL Copied:\n' + url);
+    }
+
+    function clearAllLobbyPlayers() {
+      if (!confirm('Remove all players currently in the Lobby?')) return;
+      const state = getRoomState();
+      state.players = {};
+      state.tickets = {};
+      state.ticketHashes = [];
+      addRoomActivity(state, `🧹 Host cleared all players from Lobby.`);
+      saveRoomState(state, 'PLAYERS_CLEARED');
+      renderAdminFullState();
+    }
+
+    function approvePlayerTicketRequest(playerId) {
+      const state = getRoomState();
+      const p = state.players[playerId];
+      if (!p || !p.requestedTickets) return;
+      issueTicketsToPlayer(state, playerId, p.requestedTickets);
+      addRoomActivity(state, `Host approved ${p.requestedTickets} tickets for ${p.name}.`);
+      p.requestedTickets = 0;
+      saveRoomState(state);
+      renderAdminFullState();
+    }
+
+    function adminAddTicketToPlayer(playerId, count) {
+      const state = getRoomState();
+      const p = state.players[playerId];
+      if (!p) return;
+      issueTicketsToPlayer(state, playerId, count);
+      addRoomActivity(state, `Host added +${count} ticket(s) to ${p.name}.`);
+      saveRoomState(state);
+      renderAdminFullState();
+    }
+
+    function adminKickPlayer(playerId) {
+      const state = getRoomState();
+      const p = state.players[playerId];
+      if (!p) return;
+      if (!confirm(`Kick player ${p.name} and remove their tickets?`)) return;
+      p.ticketIds.forEach(tId => { delete state.tickets[tId]; });
+      delete state.players[playerId];
+      addRoomActivity(state, `Host removed player ${p.name}.`);
+      saveRoomState(state);
+      renderAdminFullState();
+    }
+
+    function confirmAndStartGame() {
+      unlockBrowserAudioAndWakeLock();
+      const state = getRoomState();
+      if (!confirm('Lock Room & Start Game? Iske baad naye tickets issue nahi honge!')) return;
+
+      Object.keys(state.players).forEach(pid => {
+        if (state.players[pid].ticketIds.length === 0) {
+          issueTicketsToPlayer(state, pid, 1);
+        }
+      });
+
+      stopAutoCallEngine(); // Starts in Manual mode so Admin has full control
+      state.status = GAME_STATES.LIVE_CALLING;
+      countdownRemaining = state.settings.autoCallIntervalSec || 8;
+      addRoomActivity(state, `🔒 Room Locked! Round ${state.round} LIVE_CALLING started!`);
+      triggerGlobalToast(state, `🚀 Game Started! Eyes on your tickets!`);
+      saveRoomState(state, 'GAME_STARTED');
+      renderAdminFullState();
+    }
+
+    /* ========================================================================
+       4. STAGE 3: SEPARATE MANUAL CALL & AUTO-CALL ENGINE (ZERO TIMER CONFLICT)
+       ======================================================================== */
+    function startServerHeartbeat() {
+      if (callerTicker) clearInterval(callerTicker);
+      callerTicker = setInterval(() => {
+        const state = getRoomState();
+
+        // If round is not in LIVE_CALLING, automatically pause/stop auto-caller
+        if (state.status !== GAME_STATES.LIVE_CALLING) {
+          if (state.status === GAME_STATES.COMPLETED || state.status === GAME_STATES.SETUP) {
+            stopAutoCallEngine();
+          }
+          updateAutoCallButtonUI(state);
+          return;
+        }
+
+        if (isAutoCallActive) {
+          countdownRemaining--;
+          if (countdownRemaining <= 0) {
+            drawNextNumberFromServerPool();
+            countdownRemaining = state.settings.autoCallIntervalSec || 8;
+          }
+        }
+        updateAutoCallButtonUI(state);
+      }, 1000);
+    }
+
+    function updateAutoCallButtonUI(state) {
+      const autoBtn = document.getElementById('autoCallToggleBtn');
+      if (!autoBtn) return;
+      const sec = (state && state.settings && state.settings.autoCallIntervalSec) ? state.settings.autoCallIntervalSec : 8;
+
+      if (isAutoCallActive) {
+        autoBtn.innerHTML = `⏹ Stop Auto-Call (Next in <b>${countdownRemaining}s</b>...)`;
+        autoBtn.style.background = 'rgba(16, 185, 129, 0.22)';
+        autoBtn.style.borderColor = '#10b981';
+        autoBtn.style.color = '#6ee7b7';
+      } else {
+        autoBtn.innerHTML = `▶ Start Auto-Call (${sec}s Timer)`;
+        autoBtn.style.background = '#150729';
+        autoBtn.style.borderColor = 'var(--gold)';
+        autoBtn.style.color = 'var(--gold-bright)';
+      }
+    }
+
+    function stopAutoCallEngine() {
+      isAutoCallActive = false;
+      const state = getRoomState();
+      countdownRemaining = (state && state.settings && state.settings.autoCallIntervalSec) ? state.settings.autoCallIntervalSec : 8;
+      updateAutoCallButtonUI(state);
+    }
+
+    // Separate Button 1: Manual Call (1-by-1) -> Immediately stops Auto-Call timer and draws 1 number!
+    function handleManualCallClick() {
+      unlockBrowserAudioAndWakeLock();
+      const state = getRoomState();
+
+      if (state.status === GAME_STATES.CLAIM_PAUSED) {
+        alert('Game is paused for Claim Verification! Approve or Reject the pending claim first.');
+        return;
+      }
+      if (state.status === GAME_STATES.COMPLETED) {
+        alert('This round has already ended! Click "Start New Round" to play again.');
+        return;
+      }
+      if (state.status !== GAME_STATES.LIVE_CALLING && state.status !== GAME_STATES.MANUAL_PAUSED) {
+        alert('Game is not in active calling state!');
+        return;
+      }
+
+      // If Auto-Call was running, stop it immediately so timer never double-calls!
+      if (isAutoCallActive) {
+        stopAutoCallEngine();
+      }
+
+      drawNextNumberFromServerPool();
+    }
+
+    // Separate Button 2: Toggle Auto-Call ON / OFF
+    function toggleLiveAutoCall() {
+      unlockBrowserAudioAndWakeLock();
+      const state = getRoomState();
+
+      if (state.status !== GAME_STATES.LIVE_CALLING) {
+        alert('Auto-Call can only run while game is in LIVE_CALLING state!');
+        return;
+      }
+
+      if (isAutoCallActive) {
+        stopAutoCallEngine();
+        addRoomActivity(state, `⏹ Host stopped Auto-Call (Switched to Manual 1-by-1 mode).`);
+        saveRoomState(state);
+      } else {
+        isAutoCallActive = true;
+        // Draw 1 number immediately when starting Auto-Call, then count down every X seconds
+        drawNextNumberFromServerPool();
+        countdownRemaining = state.settings.autoCallIntervalSec || 8;
+      }
+      updateAutoCallButtonUI(state);
+    }
+
+    function drawNextNumberFromServerPool() {
+      const state = getRoomState();
+      if (state.numberPool.length === 0) {
+        stopAutoCallEngine();
+        state.status = GAME_STATES.COMPLETED;
+        archiveCurrentRound(state, 'All 90 Numbers Drawn');
+        addRoomActivity(state, `🏁 All 90 numbers have been drawn! Game Over!`);
+        saveRoomState(state);
+        renderAdminFullState();
+        return;
+      }
+
+      // Finalize any open 5s grace windows before drawing next number
+      state.dividends.forEach(d => {
+        if (d.status === 'CLAIM_WINDOW') {
+          d.status = 'CLAIMED';
+          d.claimWindowEndsAt = null;
+        }
+      });
+
+      const nextNum = state.numberPool.shift();
+      state.calledNumbers.push(nextNum);
+      state.currentNumber = nextNum;
+
+      const lingo = getNumberLingo(nextNum);
+      addRoomActivity(state, `#${state.calledNumbers.length} -> Host drew ${nextNum} (${lingo})`);
+      checkAutoGameOver(state);
+      if (state.status === GAME_STATES.COMPLETED) {
+        stopAutoCallEngine();
+      }
+      saveRoomState(state, 'NUMBER_DRAWN', { number: nextNum, lingo });
+
+      speakAnnouncement(`Number ${nextNum}. ${lingo}`, adminVoiceEnabled);
+      renderAdminFullState();
+    }
+
+    function toggleManualPause() {
+      const state = getRoomState();
+      if (state.status === GAME_STATES.LIVE_CALLING) {
+        stopAutoCallEngine();
+        state.status = GAME_STATES.MANUAL_PAUSED;
+        addRoomActivity(state, `⏸ Host paused the game for a break.`);
+        triggerGlobalToast(state, `⏸ Host paused the game briefly.`);
+      } else if (state.status === GAME_STATES.MANUAL_PAUSED) {
+        state.status = GAME_STATES.LIVE_CALLING;
+        countdownRemaining = state.settings.autoCallIntervalSec || 8;
+        addRoomActivity(state, `▶ Host resumed the game!`);
+        triggerGlobalToast(state, `▶ Game Resumed!`);
+      }
+      saveRoomState(state);
+      renderAdminFullState();
+    }
+
+    // FIX 2: Dedicated "🛑 End Round" Button to Instantly Stop/Complete Current Round
+    function endCurrentRoundNow() {
+      const state = getRoomState();
+      if (state.status === GAME_STATES.COMPLETED) {
+        alert('Current round is already ended!');
+        return;
+      }
+      if (!confirm(`Are you sure you want to END Round ${state.round} right now?`)) return;
+
+      stopAutoCallEngine();
+      state.status = GAME_STATES.COMPLETED;
+      state.pendingManualClaim = null;
+      archiveCurrentRound(state, 'Ended Early by Host');
+      addRoomActivity(state, `🛑 Host ended Round ${state.round}. Final Winner Podium is now live!`);
+      triggerGlobalToast(state, `🏁 Host ended Round ${state.round}! Check Final Winner Podium!`);
+      saveRoomState(state, 'ROUND_ENDED');
+      renderAdminFullState();
+    }
+
+    function updateLiveCallSpeed(val) {
+      const state = getRoomState();
+      const sec = parseInt(val, 10) || 8;
+      state.settings.autoCallIntervalSec = sec;
+      document.getElementById('liveSpeedVal').textContent = sec;
+      countdownRemaining = sec;
+      updateAutoCallButtonUI(state);
+      saveRoomState(state);
+    }
+
+    function toggleAdminVoice() {
+      adminVoiceEnabled = !adminVoiceEnabled;
+      document.getElementById('adminVoiceBtn').textContent = adminVoiceEnabled ? '🔊 Voice ON' : '🔇 Voice OFF';
+    }
+
+    // 5. Manual Claim Verification Popup Resolution
+    function resolveManualClaim(isApproved) {
+      const state = getRoomState();
+      const pending = state.pendingManualClaim;
+      if (!pending) return;
+
+      const ticket = state.tickets[pending.ticketId];
+      const dividend = state.dividends.find(d => d.id === pending.dividendId);
+
+      if (isApproved && dividend) {
+        approveDividendWinner(state, pending.playerId, pending.ticketId, pending.dividendId);
+        launchVictoryConfetti();
+      } else if (ticket && dividend) {
+        applyBogeyStrike(state, ticket, dividend.name, 'Rejected by Host');
+      }
+
+      state.pendingManualClaim = null;
+      if (state.status === GAME_STATES.CLAIM_PAUSED) {
+        state.status = GAME_STATES.LIVE_CALLING;
+      }
+      checkAutoGameOver(state);
+      saveRoomState(state, 'CLAIM_RESOLVED');
+      document.getElementById('claimVerifyModal').classList.remove('show');
+      renderAdminFullState();
+    }
+
+    // FIX 1: Start a Fresh Round -> AUTOMATICALLY WIPES OLD PLAYERS & OLD TICKETS!
+    function resetToNewRoundSetup() {
+      if (!confirm('Start a New Round? Current round history will be saved and old players will be cleared for the new round!')) return;
+
+      stopAutoCallEngine();
+      const state = getRoomState();
+      if (state.calledNumbers.length > 0 || state.dividends.some(d => d.winners.length > 0)) {
+        archiveCurrentRound(state, 'Round Completed');
+      }
+
+      state.round += 1;
+      state.status = GAME_STATES.SETUP;
+      state.numberPool = generateShuffledPool90();
+      state.calledNumbers = [];
+      state.currentNumber = null;
+      state.pendingManualClaim = null;
+
+      // Completely wipe previous round's players and tickets!
+      state.players = {};
+      state.tickets = {};
+      state.ticketHashes = [];
+
+      state.dividends.forEach(d => {
+        d.status = 'OPEN';
+        d.claimWindowEndsAt = null;
+        d.winners = [];
+      });
+
+      addRoomActivity(state, `🔄 Round ${state.round} initialized (Previous round players cleared).`);
+      triggerGlobalToast(state, `🔄 Round ${state.round} Setup Started! Re-join when Lobby opens!`);
+      saveRoomState(state, 'NEW_ROUND_RESET');
+      populateSetupWizardFromState(state);
+      renderAdminFullState();
+    }
+
+    // 7. Inspect Any Player's Tickets
+    function inspectPlayerTickets(playerId) {
+      const state = getRoomState();
+      const p = state.players[playerId];
+      if (!p) return;
+
+      const calledSet = new Set(state.calledNumbers);
+      document.getElementById('inspectorModalTitle').textContent = `🎟️ ${p.avatar || '👤'} ${p.name}'s Tickets (${p.ticketIds.length})`;
+
+      const html = p.ticketIds.map(tId => {
+        const t = state.tickets[tId];
+        if (!t) return '';
+        return renderTicketCardHTML(t, calledSet, state.currentNumber, false);
+      }).join('');
+
+      document.getElementById('inspectorModalBody').innerHTML = html || '<p>No tickets issued yet.</p>';
+      document.getElementById('ticketInspectorModal').classList.add('show');
+    }
+
+    function renderTicketCardHTML(ticket, calledSet, currentNumber, highlightForVerify = false) {
+      const markedSet = new Set(ticket.markedNumbers);
+      let gridCells = '';
+
+      for (let r = 0; r < 3; r++) {
+        for (let c = 0; c < 9; c++) {
+          const val = ticket.grid[r][c];
+          if (val === null || val === 0) {
+            gridCells += `<div class="ticket-cell empty"></div>`;
+          } else {
+            let cls = 'ticket-cell num';
+            if (highlightForVerify) {
+              if (calledSet.has(val)) cls += ' verify-called';
+              else if (markedSet.has(val)) cls += ' verify-uncalled';
+              if (val === currentNumber) cls += ' verify-last-star';
+            } else {
+              if (markedSet.has(val)) cls += ' marked';
+            }
+            gridCells += `<div class="${cls}">${val}</div>`;
+          }
+        }
+      }
+
+      const validCalledCount = ticket.grid.flat().filter(n => n && calledSet.has(n)).length;
+
+      return `
+        <div class="ticket-card ${ticket.isDisqualified ? 'disqualified' : ''}">
+          <div class="ticket-card-header">
+            <span>Ticket #${ticket.ticketId} (${ticket.playerName})</span>
+            <span>Called on Ticket: ${validCalledCount}/15 | Marked: ${ticket.markedNumbers.length}</span>
+            <span>${ticket.isDisqualified ? '❌ DISQUALIFIED' : `Bogeys: ${ticket.bogeyCount}`}</span>
+          </div>
+          <div class="ticket-grid">${gridCells}</div>
+        </div>
+      `;
+    }
+
+    function openPastRoundsModal() {
+      const state = getRoomState();
+      const body = document.getElementById('pastRoundsBody');
+      if (!state.pastRounds || state.pastRounds.length === 0) {
+        body.innerHTML = `<p style="color: var(--text-muted);">No past rounds archived yet.</p>`;
+      } else {
+        body.innerHTML = state.pastRounds.map(r => `
+          <div class="card" style="background:#140726; padding:12px; margin-bottom:10px;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+              <strong style="color:var(--gold);">Round ${r.round}: ${r.title} (${r.reason})</strong>
+              <span style="font-size:0.78rem; color:var(--text-muted);">${r.endedAt}</span>
+            </div>
+            <div style="font-size:0.84rem; margin-bottom:8px;">
+              ${r.dividends.map(d => `
+                <div>${d.icon} <b>${d.name}:</b> ${d.winners.length ? d.winners.map(w => `${w.playerName} (#${w.ticketId})`).join(', ') : 'Unclaimed'}</div>
+              `).join('')}
+            </div>
+            <div style="font-size:0.76rem; color:var(--text-muted);">
+              Called Numbers (${r.calledNumbers.length}): ${r.calledNumbers.join(', ') || 'None'}
+            </div>
+          </div>
+        `).join('');
+      }
+      document.getElementById('pastRoundsModal').classList.add('show');
+    }
+
+    // 8. Master Admin Render Function
+    function renderAdminFullState() {
+      const state = getRoomState();
+      const calledSet = new Set(state.calledNumbers);
+
+      const badge = document.getElementById('stateMachineBadge');
+      badge.textContent = `${state.status} • R${state.round}`;
+      badge.className = `state-pill ${state.status}`;
+      document.getElementById('pastRoundsBadge').textContent = state.pastRounds.length;
+
+      if (state.lastToast && state.lastToast.id !== lastToastIdSeen) {
+        lastToastIdSeen = state.lastToast.id;
+        const tb = document.getElementById('globalToastBanner');
+        tb.textContent = state.lastToast.message;
+        tb.style.display = 'block';
+        setTimeout(() => { tb.style.display = 'none'; }, 3800);
+      }
+      if (state.lastReaction && state.lastReaction.id !== lastReactionIdSeen) {
+        lastReactionIdSeen = state.lastReaction.id;
+        spawnFloatingReaction(state.lastReaction.emoji, state.lastReaction.sender);
+      }
+
+      document.getElementById('stageSetupWizard').style.display =
+        state.status === GAME_STATES.SETUP ? 'block' : 'none';
+      document.getElementById('stageLobbyManager').style.display =
+        state.status === GAME_STATES.LOBBY ? 'block' : 'none';
+      document.getElementById('stageLiveCommandCenter').style.display =
+        (state.status !== GAME_STATES.SETUP && state.status !== GAME_STATES.LOBBY) ? 'block' : 'none';
+
+      // Render Stage 2: Lobby Table
+      if (state.status === GAME_STATES.LOBBY) {
+        document.getElementById('lobbyRoomCode').textContent = state.roomCode;
+        document.getElementById('lobbyRoundNum').textContent = state.round;
+        const pList = Object.values(state.players);
+        const tbody = document.getElementById('lobbyPlayersTableBody');
+        if (pList.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="5" style="color:var(--text-muted); text-align:center; padding:18px;">Waiting for new players to join Round ${state.round} via Player Link...</td></tr>`;
+        } else {
+          tbody.innerHTML = pList.map(p => `
+            <tr>
+              <td><strong>${p.avatar || '👤'} ${p.name}</strong></td>
+              <td><span style="color:#6ee7b7;">● Online</span></td>
+              <td><b>${p.ticketIds.length}</b> Tickets</td>
+              <td>${p.requestedTickets ? `<span style="color:var(--gold-bright);">Requested ${p.requestedTickets}</span>` : '-'}</td>
+              <td style="display:flex; gap:6px; flex-wrap:wrap;">
+                ${p.requestedTickets ? `<button class="btn btn-green btn-sm" onclick="approvePlayerTicketRequest('${p.playerId}')">✅ Approve (${p.requestedTickets})</button>` : ''}
+                <button class="btn btn-dark btn-sm" onclick="adminAddTicketToPlayer('${p.playerId}', 1)">+1 Ticket</button>
+                <button class="btn btn-dark btn-sm" onclick="adminAddTicketToPlayer('${p.playerId}', 6)">+Full Sheet (6)</button>
+                <button class="btn btn-dark btn-sm" onclick="inspectPlayerTickets('${p.playerId}')">👁️ View</button>
+                <button class="btn btn-danger btn-sm" onclick="adminKickPlayer('${p.playerId}')">Kick</button>
+              </td>
+            </tr>
+          `).join('');
+        }
+        return;
+      }
+
+      // Render Stage 3: Live Command Center
+      if (state.status !== GAME_STATES.SETUP && state.status !== GAME_STATES.LOBBY) {
+        document.getElementById('liveCurrentBall').textContent = state.currentNumber !== null ? state.currentNumber : '--';
+        document.getElementById('liveCallCounter').textContent = `${state.calledNumbers.length} / 90 Called`;
+        document.getElementById('liveLingoText').textContent = getNumberLingo(state.currentNumber);
+
+        updateAutoCallButtonUI(state);
+
+        const pauseBtn = document.getElementById('pauseResumeBtn');
+        pauseBtn.textContent = state.status === GAME_STATES.MANUAL_PAUSED ? '▶ Resume Game' : '⏸ Pause Game';
+        pauseBtn.disabled = (state.status === GAME_STATES.COMPLETED);
+
+        const endBtn = document.getElementById('endRoundBtn');
+        if (endBtn) endBtn.disabled = (state.status === GAME_STATES.COMPLETED);
+
+        const manualBtn = document.getElementById('manualDrawBtn');
+        if (manualBtn) manualBtn.disabled = (state.status === GAME_STATES.COMPLETED);
+
+        const autoToggleBtn = document.getElementById('autoCallToggleBtn');
+        if (autoToggleBtn) autoToggleBtn.disabled = (state.status === GAME_STATES.COMPLETED);
+
+        // Last 10 Called Strip
+        const last10 = state.calledNumbers.map((num, idx) => ({ num, order: idx + 1 })).reverse().slice(0, 10);
+        document.getElementById('liveHistoryStrip').innerHTML = last10.map((item, i) => `
+          <div class="history-chip ${i === 0 ? 'latest' : ''}">#${item.order} → <b>${item.num}</b></div>
+        `).join('');
+
+        // 1 to 90 Master Board
+        document.getElementById('boardStatsText').textContent =
+          `Called: ${state.calledNumbers.length}/90 | Remaining: ${90 - state.calledNumbers.length}`;
+        let boardHtml = '';
+        for (let n = 1; n <= 90; n++) {
+          let cls = 'board-cell';
+          if (state.currentNumber === n) cls += ' current';
+          else if (calledSet.has(n)) cls += ' called';
+          boardHtml += `<div class="${cls}">${n}</div>`;
+        }
+        document.getElementById('masterBoardGrid').innerHTML = boardHtml;
+
+        // Dividends Tracker
+        const claimedCount = state.dividends.filter(d => d.status === 'CLAIMED').length;
+        document.getElementById('dividendsProgressText').textContent = `${claimedCount}/${state.dividends.length} Claimed`;
+
+        document.getElementById('liveDividendsList').innerHTML = state.dividends.map(d => {
+          let badgeHtml = `<span style="color:#6ee7b7; font-size:0.78rem; font-weight:700;">OPEN (${d.prizePoints} pts)</span>`;
+          if (d.status === 'CLAIM_WINDOW') {
+            badgeHtml = `<span style="color:var(--warning); font-size:0.78rem; font-weight:800;">⏳ 5s WINDOW OPEN!</span>`;
+          } else if (d.status === 'CLAIMED') {
+            const winNames = d.winners.map(w => `${w.playerName} (#${w.ticketId})`).join(', ');
+            badgeHtml = `<span style="color:var(--gold-bright); font-size:0.78rem; font-weight:700;">🏆 WON: ${winNames}</span>`;
+          }
+          return `
+            <div style="padding: 10px 4px; border-bottom: 1px solid rgba(255,255,255,0.07); display:flex; justify-content:space-between; align-items:center; gap:8px;">
+              <div>
+                <div style="font-weight:700; font-size:0.9rem;">${d.icon} ${d.name}</div>
+                <div style="font-size:0.72rem; color:var(--text-muted);">${d.desc}</div>
+              </div>
+              <div style="text-align:right;">${badgeHtml}</div>
+            </div>
+          `;
+        }).join('');
+
+        // Hype Radar
+        const hypeMessages = [];
+        Object.values(state.tickets).forEach(t => {
+          if (t.isDisqualified) return;
+          const all15 = t.grid.flat().filter(Boolean);
+          const uncalled = all15.filter(n => !calledSet.has(n));
+          if (uncalled.length === 1) {
+            hypeMessages.push(`🚨 <b>${t.playerName}</b> (#${t.ticketId}) is 1 number away from FULL HOUSE (Needs <b>${uncalled[0]}</b>)!`);
+          }
+        });
+        document.getElementById('hypeAlertsBox').innerHTML = hypeMessages.length
+          ? hypeMessages.map(m => `<div style="background:rgba(245,158,11,0.2); border:1px solid var(--gold); padding:8px 10px; border-radius:10px; font-size:0.8rem; margin-bottom:6px;">${m}</div>`).join('')
+          : `<div style="font-size:0.78rem; color:var(--text-muted);">No player is at 14/15 yet.</div>`;
+
+        // Live Players Inspector List
+        const pList = Object.values(state.players);
+        document.getElementById('livePlayersInspectorList').innerHTML = pList.length
+          ? pList.map(p => `
+              <div style="background:#140726; border:1px solid var(--border-purple); padding:8px 12px; border-radius:10px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; cursor:pointer;"
+                   onclick="inspectPlayerTickets('${p.playerId}')">
+                <div>
+                  <strong>${p.avatar || '👤'} ${p.name}</strong>
+                  <span style="font-size:0.76rem; color:var(--text-muted); margin-left:6px;">(${p.ticketIds.length} Tickets)</span>
+                </div>
+                <span style="font-size:0.78rem; color:var(--gold-bright);">👁️ Inspect →</span>
+              </div>
+            `).join('')
+          : `<div style="font-size:0.8rem; color:var(--text-muted);">No players in this round.</div>`;
+
+        // Live Audit Feed
+        document.getElementById('liveAuditFeed').innerHTML = state.activity.slice(0, 25).map(a => `
+          <div style="padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 0.82rem; display:flex; justify-content:space-between; gap:8px;">
+            <span>${a.text}</span>
+            <span style="color:var(--text-muted); font-size:0.72rem; white-space:nowrap;">${a.time}</span>
+          </div>
+        `).join('');
+
+        // Manual Claim Verification Popup
+        if (state.status === GAME_STATES.CLAIM_PAUSED && state.pendingManualClaim) {
+          stopAutoCallEngine();
+          const pending = state.pendingManualClaim;
+          const ticket = state.tickets[pending.ticketId];
+          document.getElementById('verifyClaimSub').innerHTML =
+            `Player <b>${pending.playerName}</b> claimed <b>${pending.dividendName}</b> on Ticket <b>#${pending.ticketId}</b>`;
+
+          const vBox = document.getElementById('verifySystemVerdict');
+          if (pending.evalResult.valid) {
+            vBox.style.background = 'rgba(16, 185, 129, 0.2)';
+            vBox.style.border = '1px solid #10b981';
+            vBox.style.color = '#6ee7b7';
+            vBox.textContent = `✅ Mathematical Engine Check: VALID (${pending.evalResult.reason})`;
+          } else {
+            vBox.style.background = 'rgba(239, 68, 68, 0.2)';
+            vBox.style.border = '1px solid #ef4444';
+            vBox.style.color = '#fca5a5';
+            vBox.textContent = `❌ Mathematical Engine Check: INVALID / BOGEY (${pending.evalResult.reason})`;
+          }
+
+          if (ticket) {
+            document.getElementById('verifyTicketContainer').innerHTML =
+              renderTicketCardHTML(ticket, calledSet, state.currentNumber, true);
+          }
+          document.getElementById('claimVerifyModal').classList.add('show');
+        } else {
+          document.getElementById('claimVerifyModal').classList.remove('show');
+        }
+
+        // Show Final Podium if state === COMPLETED
+        const podiumCard = document.getElementById('completedPodiumCard');
+        if (state.status === GAME_STATES.COMPLETED) {
+          podiumCard.style.display = 'block';
+          document.getElementById('podiumSummaryBody').innerHTML = state.dividends.map(d => `
+            <div style="padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.08); display:flex; justify-content:space-between;">
+              <span>${d.icon} <b>${d.name}</b> (${d.prizePoints} pts)</span>
+              <strong style="color:var(--gold-bright);">
+                ${d.winners.length ? d.winners.map(w => `${w.playerName} (#${w.ticketId} - ${w.pointsAwarded} pts)`).join(', ') : 'Unclaimed'}
+              </strong>
+            </div>
+          `).join('');
+        } else {
+          podiumCard.style.display = 'none';
+        }
+      }
+    }
+
+    window.addEventListener('storage', () => renderAdminFullState());
+    if (syncChannel) {
+      syncChannel.onmessage = () => renderAdminFullState();
+    }
+    setInterval(renderAdminFullState, 1200);
+
+    initAdminPage();
+  </script>
+</body>
+</html>

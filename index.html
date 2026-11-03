@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Diwali Tambola Pro - Player Mobile App</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- Toast Notification Banner -->
+  <div id="playerToastBanner" class="toast-banner"></div>
+
+  <!-- Top Navigation -->
+  <div class="top-control-bar">
+    <div class="control-title">
+      <span>🪔 Tambola App</span>
+      <span id="playerStateBadge" class="state-pill">LOBBY</span>
+    </div>
+    <div class="switch-tabs">
+      <a href="admin.html" class="tab-btn">🎛️ Host</a>
+      <a href="index.html" class="tab-btn active">📱 Player</a>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       SCREEN 1: JOIN SCREEN MODAL (With Avatar Selector & Guest Mode)
+       ======================================================================== -->
+  <div id="joinScreenModal" class="modal-overlay">
+    <div class="modal-box" style="text-align: center;">
+      <button class="modal-close" onclick="enterSpectatorMode()" title="Watch as Guest">✕</button>
+
+      <div style="font-size: 2.5rem; margin-bottom: 4px;">🪔✨</div>
+      <h2 style="color: var(--gold); margin-bottom: 4px;">Join Diwali Tambola</h2>
+      <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 14px;" id="joinModalSubText">
+        Pick your Diwali Avatar & enter your name to join the current round!
+      </p>
+
+      <div class="avatar-grid" id="avatarPickerGrid">
+        <div class="avatar-option selected" onclick="selectAvatar(this, '🦁')">🦁</div>
+        <div class="avatar-option" onclick="selectAvatar(this, '🪔')">🪔</div>
+        <div class="avatar-option" onclick="selectAvatar(this, '🎆')">🎆</div>
+        <div class="avatar-option" onclick="selectAvatar(this, '👑')">👑</div>
+        <div class="avatar-option" onclick="selectAvatar(this, '🐯')">🐯</div>
+        <div class="avatar-option" onclick="selectAvatar(this, '💃')">💃</div>
+        <div class="avatar-option" onclick="selectAvatar(this, '🕺')">🕺</div>
+        <div class="avatar-option" onclick="selectAvatar(this, '🚀')">🚀</div>
+      </div>
+
+      <input type="text" id="joinPlayerName" class="input-field" placeholder="Your Name (e.g., Adii, Rahul)" maxlength="20" style="margin-bottom: 10px;" />
+      <input type="text" id="joinRoomCode" class="input-field" placeholder="Room Code (Auto-filled)" style="margin-bottom: 12px;" readonly />
+
+      <button class="btn btn-gold" style="width: 100%; margin-bottom: 8px;" onclick="submitPlayerJoin()">
+        🎟️ Join Round & Get Tickets
+      </button>
+      <button class="btn btn-dark" style="width: 100%;" onclick="enterSpectatorMode()">
+        👀 Watch as Guest Spectator
+      </button>
+    </div>
+  </div>
+
+  <!-- Main Mobile Portrait Container -->
+  <div class="player-container">
+
+    <!-- ======================================================================
+         SCREEN 2: WAITING LOBBY (Ticket Picker + Preview + Shuffle Button)
+         ====================================================================== -->
+    <div id="playerWaitingLobby" style="display: none;">
+      <div class="card">
+        <div class="card-title">
+          <span id="lobbyGameTitle">Diwali Family Tambola</span>
+          <button class="btn btn-dark btn-sm" onclick="openSwitchProfileModal()">👤 Join / Switch</button>
+        </div>
+
+        <p style="color: var(--text-muted); font-size: 0.86rem; margin-bottom: 14px;">
+          Waiting for Host to start the game. Choose your tickets below!
+        </p>
+
+        <div style="margin-bottom: 14px;">
+          <div style="font-size: 0.8rem; color: var(--gold-bright); font-weight: 700; margin-bottom: 8px;">
+            🎟️ SELECT YOUR TICKETS (FULL-SHEET ALGORITHM):
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <button class="btn btn-dark" onclick="pickPlayerTickets(1)">1 Ticket</button>
+            <button class="btn btn-dark" onclick="pickPlayerTickets(2)">2 Tickets</button>
+            <button class="btn btn-dark" onclick="pickPlayerTickets(3)">Half Sheet (3)</button>
+            <button class="btn btn-gold" onclick="pickPlayerTickets(6)">Full Sheet (6)</button>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <span style="font-size: 0.85rem; font-weight: 700;" id="lobbyTicketCountText">Your Tickets (0)</span>
+          <button class="btn btn-dark btn-sm" onclick="shuffleMyLobbyTickets()">🎲 Shuffle My Tickets</button>
+        </div>
+
+        <div id="lobbyPreviewTickets"></div>
+      </div>
+
+      <!-- Active Game Rules & Prizes Card -->
+      <div class="card">
+        <div class="card-title">📜 Game Rules & Active Prizes</div>
+        <div id="lobbyRulesSummary" style="font-size: 0.84rem; color: var(--text-muted); margin-bottom: 12px;"></div>
+        <div id="lobbyPrizesSummary"></div>
+      </div>
+    </div>
+
+    <!-- ======================================================================
+         SCREEN 3: LIVE PLAYER GAMEPLAY SCREEN (Sticky Top + Tickets + Inline Claims)
+         ====================================================================== -->
+    <div id="playerLiveGameScreen" style="display: none;">
+
+      <!-- 1. Mobile-Aligned Sticky Top Bar -->
+      <div class="player-sticky-top">
+        <div class="sticky-top-main">
+          <div class="giant-ball" style="width: 58px; height: 58px; font-size: 1.85rem;" id="playerCurrentBall">--</div>
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-size: 0.78rem; color: var(--gold-bright); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" id="playerLingoCallout">
+              Waiting for Host to draw...
+            </div>
+            <div class="history-strip" id="playerLast5Strip" style="margin-top: 6px;"></div>
+          </div>
+        </div>
+
+        <div class="sticky-top-actions">
+          <button class="btn btn-dark btn-sm" id="playerVoiceBtn" onclick="togglePlayerVoice()" title="Mute/Unmute">🔊</button>
+          <button class="btn btn-dark btn-sm" onclick="openMasterBoardDrawer()">📋 Board</button>
+          <button class="btn btn-dark btn-sm" onclick="openPrizesDrawer()">🏆 Winners</button>
+          <button class="btn btn-dark btn-sm" onclick="openSwitchProfileModal()">
+            👤 <span id="activePlayerNameBadge">Player</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Guest Spectator Banner -->
+      <div id="spectatorNoticeCard" class="card" style="display: none; text-align: center; border-color: var(--gold);">
+        <h3 style="color: var(--gold); margin-bottom: 6px;">👀 Watching as Guest Spectator</h3>
+        <p style="font-size: 0.84rem; color: var(--text-muted); margin-bottom: 10px;">
+          Tap 📋 Board above or view live prizes below!
+        </p>
+        <button class="btn btn-gold btn-sm" onclick="openSwitchProfileModal()">🎟️ Join with Name</button>
+      </div>
+
+      <!-- Winner Podium Card when Game Over / Round Ended -->
+      <div id="playerGameOverCard" class="card" style="display: none; border: 2px solid var(--gold);">
+        <div class="card-title">🏆 Round Ended - Final Winner Podium!</div>
+        <div id="playerPodiumList"></div>
+      </div>
+
+      <!-- 2. Vertically Stacked Player Tickets -->
+      <div id="playerStackedTicketsContainer"></div>
+
+      <!-- 3. Inline Claim Prizes Section directly on Home Screen -->
+      <div class="card" id="homeClaimSectionCard">
+        <div class="card-title" style="margin-bottom: 6px;">
+          <span>✦ CLAIM PRIZES ✦</span>
+          <span style="font-size: 0.74rem; color: var(--text-muted);">Tap prize to claim instantly</span>
+        </div>
+
+        <div id="multiTicketSelectorBar" style="display: none; margin-bottom: 10px;"></div>
+        <div class="home-claim-grid" id="homeClaimPrizesGrid"></div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- 4. Bottom Live Reaction Bar -->
+  <div class="player-bottom-bar">
+    <div class="player-bottom-inner">
+      <span style="font-size: 0.76rem; color: var(--text-muted); font-weight: 700;">Live Vibe:</span>
+      <button class="react-btn" onclick="sendPlayerReaction('🎉')">🎉</button>
+      <button class="react-btn" onclick="sendPlayerReaction('😱')">😱</button>
+      <button class="react-btn" onclick="sendPlayerReaction('😭')">😭</button>
+      <button class="react-btn" onclick="sendPlayerReaction('🔥')">🔥</button>
+      <button class="react-btn" onclick="sendPlayerReaction('⏳ Wait!')" style="font-size: 0.8rem; font-weight: 700; color: var(--gold-bright);">⏳ Wait!</button>
+    </div>
+  </div>
+
+  <!-- 1 to 90 Master Board Drawer Modal -->
+  <div id="playerBoardModal" class="modal-overlay">
+    <div class="modal-box">
+      <button class="modal-close" onclick="document.getElementById('playerBoardModal').classList.remove('show')">✕</button>
+      <h3 style="color: var(--gold); margin-bottom: 10px;">📋 1 to 90 Master Board</h3>
+      <div class="board-grid" id="playerDrawerBoardGrid"></div>
+    </div>
+  </div>
+
+  <!-- Active Prizes Drawer Modal -->
+  <div id="playerPrizesModal" class="modal-overlay">
+    <div class="modal-box">
+      <button class="modal-close" onclick="document.getElementById('playerPrizesModal').classList.remove('show')">✕</button>
+      <h3 style="color: var(--gold); margin-bottom: 10px;">🏆 Live Dividends & Winners</h3>
+      <div id="playerDrawerPrizesList"></div>
+    </div>
+  </div>
+
+  <script src="js/game.js"></script>
+  <script>
+    let chosenAvatar = '🦁';
+    let playerToken = localStorage.getItem('TAMBOLA_PLAYER_TOKEN') || '';
+    let isSpectator = sessionStorage.getItem('TAMBOLA_SPECTATOR') === 'true';
+    let playerVoiceOn = false;
+    let activeClaimTicketId = null;
+    let lastSpokenNum = null;
+    let lastPlayerToastSeen = null;
+    let lastPlayerReactSeen = null;
+
+    function showLocalPlayerToast(msg, isError = false) {
+      const tb = document.getElementById('playerToastBanner');
+      if (!tb) return;
+      tb.textContent = msg;
+      tb.style.background = isError
+        ? 'linear-gradient(135deg, #ef4444, #b91c1c)'
+        : 'linear-gradient(135deg, #f5b82e, #ff6b00)';
+      tb.style.color = isError ? '#ffffff' : '#1a062b';
+      tb.style.display = 'block';
+      setTimeout(() => { tb.style.display = 'none'; }, 3000);
+    }
+
+    function selectAvatar(el, icon) {
+      document.querySelectorAll('.avatar-option').forEach(o => o.classList.remove('selected'));
+      el.classList.add('selected');
+      chosenAvatar = icon;
+    }
+
+    function initPlayerApp() {
+      const state = getRoomState();
+      document.getElementById('joinRoomCode').value = state.roomCode;
+
+      if (playerToken && state.players[playerToken]) {
+        isSpectator = false;
+        document.getElementById('joinScreenModal').classList.remove('show');
+      } else {
+        // If old player token is not in current round's players list, clear it!
+        playerToken = '';
+        localStorage.removeItem('TAMBOLA_PLAYER_TOKEN');
+        if (!isSpectator) {
+          document.getElementById('joinScreenModal').classList.add('show');
+        }
+      }
+      renderPlayerApp();
+    }
+
+    function openSwitchProfileModal() {
+      const state = getRoomState();
+      document.getElementById('joinRoomCode').value = state.roomCode;
+      document.getElementById('joinScreenModal').classList.add('show');
+    }
+
+    function submitPlayerJoin() {
+      unlockBrowserAudioAndWakeLock();
+      const nameInput = document.getElementById('joinPlayerName').value.trim();
+      if (!nameInput) {
+        alert('Please enter your name!');
+        return;
+      }
+
+      const state = getRoomState();
+      if (state.status !== GAME_STATES.LOBBY && state.status !== GAME_STATES.SETUP) {
+        alert('Room is locked for this round! You can watch as a Guest Spectator or join the next round.');
+        enterSpectatorMode();
+        return;
+      }
+
+      let pid = 'p_' + nameInput.toLowerCase().replace(/[^a-z0-9]/g, '_');
+
+      if (!state.players[pid]) {
+        state.players[pid] = {
+          playerId: pid,
+          name: nameInput,
+          avatar: chosenAvatar,
+          ticketIds: [],
+          requestedTickets: 0,
+          joinedAt: getTimeStr()
+        };
+        if (state.settings.ticketDistributionMode === 'SELF_PICK') {
+          issueTicketsToPlayer(state, pid, 1);
+        }
+        addRoomActivity(state, `${chosenAvatar} ${nameInput} joined Round ${state.round}.`);
+        saveRoomState(state, 'PLAYER_JOINED');
+      } else {
+        state.players[pid].avatar = chosenAvatar;
+        saveRoomState(state);
+      }
+
+      playerToken = pid;
+      isSpectator = false;
+      localStorage.setItem('TAMBOLA_PLAYER_TOKEN', pid);
+      sessionStorage.setItem('TAMBOLA_SPECTATOR', 'false');
+      document.getElementById('joinScreenModal').classList.remove('show');
+      renderPlayerApp();
+    }
+
+    function enterSpectatorMode() {
+      unlockBrowserAudioAndWakeLock();
+      isSpectator = true;
+      sessionStorage.setItem('TAMBOLA_SPECTATOR', 'true');
+      document.getElementById('joinScreenModal').classList.remove('show');
+      renderPlayerApp();
+    }
+
+    function pickPlayerTickets(count) {
+      unlockBrowserAudioAndWakeLock();
+      const state = getRoomState();
+      if (state.status !== GAME_STATES.LOBBY && state.status !== GAME_STATES.SETUP) {
+        alert('Room is locked! Tickets cannot be changed after game starts.');
+        return;
+      }
+      const p = state.players[playerToken];
+      if (!p) {
+        openSwitchProfileModal();
+        return;
+      }
+
+      if (state.settings.ticketDistributionMode === 'HOST_APPROVAL') {
+        p.requestedTickets = count;
+        addRoomActivity(state, `${p.name} requested ${count} ticket(s) (Waiting for Host approval).`);
+        saveRoomState(state);
+        alert(`Request for ${count} ticket(s) sent to Host!`);
+        renderPlayerApp();
+        return;
+      }
+
+      p.ticketIds.forEach(tId => { delete state.tickets[tId]; });
+      p.ticketIds = [];
+      issueTicketsToPlayer(state, playerToken, count);
+      addRoomActivity(state, `${p.name} selected ${count} ticket(s).`);
+      saveRoomState(state);
+      renderPlayerApp();
+    }
+
+    function shuffleMyLobbyTickets() {
+      const state = getRoomState();
+      if (state.status !== GAME_STATES.LOBBY && state.status !== GAME_STATES.SETUP) {
+        alert('Cannot shuffle tickets after game starts!');
+        return;
+      }
+      const p = state.players[playerToken];
+      if (!p || p.ticketIds.length === 0) return;
+      const currentCount = p.ticketIds.length;
+      p.ticketIds.forEach(tId => { delete state.tickets[tId]; });
+      p.ticketIds = [];
+      issueTicketsToPlayer(state, playerToken, currentCount);
+      saveRoomState(state);
+      renderPlayerApp();
+    }
+
+    function onPlayerTapTicketCell(ticketId, num, cellEl) {
+      unlockBrowserAudioAndWakeLock();
+      const state = getRoomState();
+      if (state.status !== GAME_STATES.LIVE_CALLING && state.status !== GAME_STATES.CLAIM_PAUSED) {
+        return;
+      }
+
+      const ticket = state.tickets[ticketId];
+      if (!ticket || ticket.isDisqualified) {
+        showLocalPlayerToast('❌ Ye ticket Bogey ki wajah se Lock ho chuka hai!', true);
+        return;
+      }
+
+      const calledSet = new Set(state.calledNumbers);
+      ticket.markedNumbers = ticket.markedNumbers.filter(n => calledSet.has(n));
+
+      if (ticket.markedNumbers.includes(num)) {
+        showLocalPlayerToast(`🔒 Number ${num} pehle se select aur lock ho chuka hai!`, false);
+        return;
+      }
+
+      if (!calledSet.has(num)) {
+        if (cellEl) {
+          cellEl.classList.remove('marked');
+          cellEl.classList.add('bogey-flash');
+          setTimeout(() => cellEl.classList.remove('bogey-flash'), 650);
+        }
+        addRoomActivity(state, `⚠️ Bogey Tap! ${ticket.playerName} tried selecting uncalled number ${num}.`);
+        saveRoomState(state);
+        showLocalPlayerToast(`❌ BOGEY ERROR! Number ${num} abhi tak Host ne call nahi kiya hai!`, true);
+        return;
+      }
+
+      ticket.markedNumbers.push(num);
+      saveRoomState(state, 'PLAYER_MARKED');
+      renderPlayerApp();
+    }
+
+    function selectActiveTicketForClaim(tId) {
+      activeClaimTicketId = tId;
+      renderPlayerApp();
+    }
+
+    function claimPrizeFromHomeScreen(dividendId) {
+      unlockBrowserAudioAndWakeLock();
+      const state = getRoomState();
+
+      if (isSpectator || !playerToken || !state.players[playerToken]) {
+        showLocalPlayerToast('👀 Aap Guest Mode mein hain! Khelne ke liye Join karein.', true);
+        return;
+      }
+
+      if (state.status !== GAME_STATES.LIVE_CALLING) {
+        showLocalPlayerToast('⏳ Abhi game calling state mein nahi hai!', true);
+        return;
+      }
+
+      const player = state.players[playerToken];
+      const activeTickets = player.ticketIds
+        .map(id => state.tickets[id])
+        .filter(t => t && !t.isDisqualified);
+
+      if (activeTickets.length === 0) {
+        showLocalPlayerToast('❌ Aapke paas koi active ticket nahi hai!', true);
+        return;
+      }
+
+      let targetTicketId = activeClaimTicketId && state.tickets[activeClaimTicketId]
+        ? activeClaimTicketId
+        : activeTickets[0].ticketId;
+
+      for (const t of activeTickets) {
+        const check = evaluateClaimValidity(state, playerToken, t.ticketId, dividendId);
+        if (check.valid) {
+          targetTicketId = t.ticketId;
+          break;
+        }
+      }
+
+      submitPlayerClaim(targetTicketId, dividendId);
+    }
+
+    function submitPlayerClaim(ticketId, dividendId) {
+      const state = getRoomState();
+      const player = state.players[playerToken];
+      const ticket = state.tickets[ticketId];
+      const dividend = state.dividends.find(d => d.id === dividendId);
+
+      if (!player || !ticket || !dividend) return;
+
+      const evalResult = evaluateClaimValidity(state, playerToken, ticketId, dividendId);
+
+      if (state.settings.claimVerificationMode === 'MANUAL_POPUP') {
+        state.status = GAME_STATES.CLAIM_PAUSED;
+        state.pendingManualClaim = {
+          playerId: playerToken,
+          playerName: player.name,
+          ticketId,
+          dividendId,
+          dividendName: dividend.name,
+          evalResult
+        };
+        addRoomActivity(state, `🚨 CLAIM PAUSED: ${player.name} claimed ${dividend.name} on #${ticketId}. Waiting for Host approval...`);
+        triggerGlobalToast(state, `🚨 ${player.name} claimed ${dividend.name}! Host is verifying...`);
+        saveRoomState(state, 'CLAIM_SUBMITTED');
+        renderPlayerApp();
+        return;
+      }
+
+      if (evalResult.valid) {
+        approveDividendWinner(state, playerToken, ticketId, dividendId);
+        saveRoomState(state, 'CLAIM_APPROVED');
+        launchVictoryConfetti();
+        renderPlayerApp();
+        showLocalPlayerToast(`🎉 BADHAI HO ${player.name}! Aapne "${dividend.name}" jeet liya!`, false);
+      } else {
+        if (evalResult.isBogey) {
+          applyBogeyStrike(state, ticket, dividend.name, evalResult.reason);
+        } else {
+          addRoomActivity(state, `⚠️ Rejected claim by ${player.name} for ${dividend.name}: ${evalResult.reason}`);
+        }
+        saveRoomState(state, 'CLAIM_REJECTED');
+        renderPlayerApp();
+        showLocalPlayerToast(`❌ ${evalResult.reason}`, true);
+      }
+    }
+
+    function togglePlayerVoice() {
+      unlockBrowserAudioAndWakeLock();
+      playerVoiceOn = !playerVoiceOn;
+      document.getElementById('playerVoiceBtn').textContent = playerVoiceOn ? '🔊' : '🔇';
+    }
+
+    function openMasterBoardDrawer() {
+      const state = getRoomState();
+      const calledSet = new Set(state.calledNumbers);
+      let html = '';
+      for (let n = 1; n <= 90; n++) {
+        let cls = 'board-cell';
+        if (state.currentNumber === n) cls += ' current';
+        else if (calledSet.has(n)) cls += ' called';
+        html += `<div class="${cls}">${n}</div>`;
+      }
+      document.getElementById('playerDrawerBoardGrid').innerHTML = html;
+      document.getElementById('playerBoardModal').classList.add('show');
+    }
+
+    function openPrizesDrawer() {
+      const state = getRoomState();
+      document.getElementById('playerDrawerPrizesList').innerHTML = state.dividends.map(d => `
+        <div style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.08); display:flex; justify-content:space-between;">
+          <div>
+            <strong>${d.icon} ${d.name}</strong> (${d.prizePoints} pts)
+            <div style="font-size:0.75rem; color:var(--text-muted);">${d.desc}</div>
+          </div>
+          <div style="text-align:right; font-weight:700; color:var(--gold-bright);">
+            ${d.winners.length ? `🏆 ${d.winners.map(w => w.playerName).join(', ')}` : 'OPEN'}
+          </div>
+        </div>
+      `).join('');
+      document.getElementById('playerPrizesModal').classList.add('show');
+    }
+
+    function sendPlayerReaction(emoji) {
+      const state = getRoomState();
+      const p = state.players[playerToken];
+      const sender = p ? p.name : 'Guest';
+      const reactObj = { id: Date.now() + Math.random(), emoji, sender };
+      state.lastReaction = reactObj;
+      addRoomActivity(state, `${sender} reacted ${emoji}`);
+      saveRoomState(state, 'LIVE_REACTION', reactObj);
+      spawnFloatingReaction(emoji, sender);
+    }
+
+    function renderPlayerApp() {
+      const state = getRoomState();
+      const calledSet = new Set(state.calledNumbers);
+
+      // Auto-detect if Host started a New Round and wiped old players!
+      if (playerToken && !state.players[playerToken]) {
+        playerToken = '';
+        localStorage.removeItem('TAMBOLA_PLAYER_TOKEN');
+        if (!isSpectator) {
+          document.getElementById('joinModalSubText').textContent =
+            `Round ${state.round} is starting! Enter your name to join this round:`;
+          document.getElementById('joinScreenModal').classList.add('show');
+        }
+      }
+
+      const player = state.players[playerToken];
+
+      const badge = document.getElementById('playerStateBadge');
+      badge.textContent = `${state.status} • R${state.round}`;
+      badge.className = `state-pill ${state.status}`;
+
+      if (state.lastToast && state.lastToast.id !== lastPlayerToastSeen) {
+        lastPlayerToastSeen = state.lastToast.id;
+        showLocalPlayerToast(state.lastToast.message, false);
+      }
+      if (state.lastReaction && state.lastReaction.id !== lastPlayerReactSeen) {
+        lastPlayerReactSeen = state.lastReaction.id;
+        spawnFloatingReaction(state.lastReaction.emoji, state.lastReaction.sender);
+      }
+
+      if (state.currentNumber && state.currentNumber !== lastSpokenNum) {
+        lastSpokenNum = state.currentNumber;
+        speakAnnouncement(`Number ${state.currentNumber}. ${getNumberLingo(state.currentNumber)}`, playerVoiceOn);
+      }
+
+      const inLobbyPhase = (state.status === GAME_STATES.SETUP || state.status === GAME_STATES.LOBBY);
+      document.getElementById('playerWaitingLobby').style.display = inLobbyPhase ? 'block' : 'none';
+      document.getElementById('playerLiveGameScreen').style.display = !inLobbyPhase ? 'block' : 'none';
+
+      // Render Screen 2: Waiting Lobby
+      if (inLobbyPhase) {
+        document.getElementById('lobbyGameTitle').textContent = `${state.title} (Round ${state.round})`;
+        document.getElementById('lobbyRulesSummary').innerHTML = `
+          • <b>Uncalled Numbers:</b> Auto-blocked with Bogey Alert |
+          <b>Strict Last-Number Rule:</b> ${state.settings.strictLastNumberRule ? 'ON ⚡' : 'OFF'} |
+          <b>Joint-Winner Window:</b> ${state.settings.allowJointWinners ? '5s ON 🤝' : 'OFF'}
+        `;
+        document.getElementById('lobbyPrizesSummary').innerHTML = state.dividends.map(d => `
+          <span class="history-chip" style="display:inline-block; margin: 3px;">${d.icon} ${d.name} (${d.prizePoints} pts)</span>
+        `).join('');
+
+        if (!player) {
+          document.getElementById('lobbyTicketCountText').textContent = 'Not Joined Yet (Click Join / Switch above)';
+          document.getElementById('lobbyPreviewTickets').innerHTML = '';
+        } else {
+          document.getElementById('lobbyTicketCountText').textContent =
+            `${player.avatar} ${player.name}'s Tickets (${player.ticketIds.length})`;
+          document.getElementById('lobbyPreviewTickets').innerHTML = player.ticketIds.map(tId => {
+            const t = state.tickets[tId];
+            if (!t) return '';
+            let cells = '';
+            for (let r = 0; r < 3; r++) {
+              for (let c = 0; c < 9; c++) {
+                const v = t.grid[r][c];
+                cells += v ? `<div class="ticket-cell num">${v}</div>` : `<div class="ticket-cell empty"></div>`;
+              }
+            }
+            return `
+              <div class="ticket-card">
+                <div class="ticket-card-header">
+                  <span>Ticket #${t.ticketId}</span>
+                  <span>Hash: ${t.hash.slice(0, 14)}...</span>
+                </div>
+                <div class="ticket-grid">${cells}</div>
+              </div>
+            `;
+          }).join('');
+        }
+        return;
+      }
+
+      // Render Screen 3: Live Gameplay Screen
+      document.getElementById('playerCurrentBall').textContent = state.currentNumber !== null ? state.currentNumber : '--';
+      document.getElementById('playerLingoCallout').textContent = getNumberLingo(state.currentNumber);
+
+      const last5 = [...state.calledNumbers].reverse().slice(0, 5);
+      document.getElementById('playerLast5Strip').innerHTML = last5.map((n, i) => `
+        <span class="history-chip ${i === 0 ? 'latest' : ''}">${n}</span>
+      `).join('');
+
+      // Game Over Winner Podium
+      const overCard = document.getElementById('playerGameOverCard');
+      if (state.status === GAME_STATES.COMPLETED) {
+        overCard.style.display = 'block';
+        document.getElementById('playerPodiumList').innerHTML = state.dividends.map(d => `
+          <div style="padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.08); display:flex; justify-content:space-between; font-size:0.86rem;">
+            <span>${d.icon} <b>${d.name}</b></span>
+            <strong style="color:var(--gold-bright);">
+              ${d.winners.length ? d.winners.map(w => `${w.playerName} (${w.pointsAwarded} pts)`).join(', ') : 'Unclaimed'}
+            </strong>
+          </div>
+        `).join('');
+      } else {
+        overCard.style.display = 'none';
+      }
+
+      if (!player || isSpectator) {
+        document.getElementById('activePlayerNameBadge').textContent = 'Guest';
+        document.getElementById('spectatorNoticeCard').style.display = 'block';
+        document.getElementById('playerStackedTicketsContainer').innerHTML = '';
+        document.getElementById('multiTicketSelectorBar').style.display = 'none';
+      } else {
+        document.getElementById('spectatorNoticeCard').style.display = 'none';
+        document.getElementById('activePlayerNameBadge').textContent = player.name;
+
+        if (!activeClaimTicketId || !player.ticketIds.includes(activeClaimTicketId)) {
+          activeClaimTicketId = player.ticketIds[0] || null;
+        }
+
+        const selectorBar = document.getElementById('multiTicketSelectorBar');
+        if (player.ticketIds.length > 1) {
+          selectorBar.style.display = 'flex';
+          selectorBar.style.gap = '6px';
+          selectorBar.style.flexWrap = 'wrap';
+          selectorBar.innerHTML = player.ticketIds.map(tId => `
+            <button class="btn ${activeClaimTicketId === tId ? 'btn-gold' : 'btn-dark'} btn-sm"
+                    onclick="selectActiveTicketForClaim('${tId}')">
+              🎟️ #${tId}
+            </button>
+          `).join('');
+        } else {
+          selectorBar.style.display = 'none';
+        }
+
+        document.getElementById('playerStackedTicketsContainer').innerHTML = player.ticketIds.map(tId => {
+          const t = state.tickets[tId];
+          if (!t) return '';
+
+          const validMarked = t.markedNumbers.filter(n => calledSet.has(n));
+          const markedSet = new Set(validMarked);
+
+          let cells = '';
+          for (let r = 0; r < 3; r++) {
+            for (let c = 0; c < 9; c++) {
+              const v = t.grid[r][c];
+              if (!v) {
+                cells += `<div class="ticket-cell empty"></div>`;
+              } else {
+                const isMarked = markedSet.has(v);
+                cells += `
+                  <div class="ticket-cell num ${isMarked ? 'marked' : ''}"
+                       onclick="onPlayerTapTicketCell('${t.ticketId}', ${v}, this)">
+                    ${v}
+                  </div>
+                `;
+              }
+            }
+          }
+
+          return `
+            <div class="ticket-card ${t.isDisqualified ? 'disqualified' : ''}">
+              <div class="ticket-card-header">
+                <span>🎟️ Ticket #${t.ticketId}</span>
+                <span>Marked: ${validMarked.length}/15</span>
+                <span style="color:${t.isDisqualified ? 'var(--danger)' : '#059669'};">
+                  ${t.isDisqualified ? '❌ BOGEY LOCKED' : `Active (Bogeys: ${t.bogeyCount}/${state.settings.maxBogeysPerTicket})`}
+                </span>
+              </div>
+              <div class="ticket-grid">${cells}</div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      // Render Inline Home Screen Claim Prizes Grid
+      const totalDivs = state.dividends.length;
+      document.getElementById('homeClaimPrizesGrid').innerHTML = state.dividends.map((d, idx) => {
+        const isClaimed = d.status === 'CLAIMED';
+        const isGrace = d.status === 'CLAIM_WINDOW';
+        const isLastOdd = (idx === totalDivs - 1) && (totalDivs % 2 === 1);
+
+        let statusHtml = `<span class="claim-card-status" style="background:rgba(245,184,46,0.18); color:var(--gold-bright);">Tap to Claim (${d.prizePoints} pts)</span>`;
+        if (isGrace) {
+          statusHtml = `<span class="claim-card-status" style="background:#f59e0b; color:#1a062b;">⏳ JOIN CLAIM (5s Left!)</span>`;
+        } else if (isClaimed) {
+          const winnersStr = d.winners.map(w => w.playerName).join(', ');
+          statusHtml = `<span class="claim-card-status" style="background:rgba(16,185,129,0.22); color:#6ee7b7;">🏆 Won by ${winnersStr}</span>`;
+        }
+
+        return `
+          <div class="home-claim-card ${isLastOdd ? 'full-width' : ''} ${isClaimed ? 'claimed' : ''} ${isGrace ? 'grace-window' : ''}"
+               onclick="${isClaimed ? '' : `claimPrizeFromHomeScreen('${d.id}')`}">
+            <div class="claim-card-icon">${d.icon}</div>
+            <div class="claim-card-title">${d.name}</div>
+            <div class="claim-card-desc">${d.desc}</div>
+            <div>${statusHtml}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    window.addEventListener('storage', () => renderPlayerApp());
+    if (syncChannel) {
+      syncChannel.onmessage = () => renderPlayerApp();
+    }
+    setInterval(renderPlayerApp, 1000);
+
+    initPlayerApp();
+  </script>
+</body>
+</html>
